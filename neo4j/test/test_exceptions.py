@@ -2,6 +2,7 @@ import unittest
 
 import neo4j
 
+
 class TestExceptions(unittest.TestCase):
 
     def setUp(self):
@@ -14,7 +15,7 @@ class TestExceptions(unittest.TestCase):
         # When
         try:
             cursor.execute("this is not valid syntax")
-            cursor.rowcount # Force client to talk to server
+            cursor.rowcount  # Force client to talk to server
             raise Exception("Should not have reached here.")
         except neo4j.ProgrammingError as e:
             # Then
@@ -26,7 +27,7 @@ class TestExceptions(unittest.TestCase):
         cursor = self.conn.cursor()
         try:
             cursor.execute("this is not valid syntax")
-            cursor.rowcount # Force client to talk to server
+            cursor.rowcount  # Force client to talk to server
         except neo4j.ProgrammingError as e:
             pass
         self.conn.rollback()
@@ -36,8 +37,6 @@ class TestExceptions(unittest.TestCase):
 
         # Then
         self.assertEqual(cursor.messages, [])
-
-
 
 if __name__ == '__main__':
     unittest.main()
