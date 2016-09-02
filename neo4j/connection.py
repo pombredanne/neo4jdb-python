@@ -1,5 +1,6 @@
 
 import json
+import base64
 
 from neo4j.cursor import Cursor
 from neo4j.strings import ustr
@@ -72,6 +73,14 @@ class Connection(object):
         self._cursors = set()
         self._cursor_ids = 0
 
+    def authorization(self, username, password):
+        basic_auth = '%s:%s' % (username, password)
+        try:  # Python 2
+            auth = base64.encodestring(basic_auth)
+        except TypeError:  # Python 3
+            auth = base64.encodestring(bytes(basic_auth, 'utf-8')).decode()
+        self._COMMON_HEADERS.update({"Authorization": "Basic %s" % auth.strip()})
+
     def commit(self):
         self._messages = []
         pending = self._gather_pending()
@@ -88,9 +97,14 @@ class Connection(object):
         self._messages = []
         self._gather_pending()  # Just used to clear all pending requests
         if self._tx != TX_ENDPOINT:
-            response = self._deserialize(self._http_req("DELETE", self._tx))
-            self._tx = TX_ENDPOINT
-            self._handle_errors(response, self, None)
+            try:
+                response = self._deserialize(self._http_req("DELETE", self._tx))
+                self._tx = TX_ENDPOINT
+                self._handle_errors(response, self, None)
+            except self.OperationalError:
+                # Neo.ClientError.Transaction.UnknownId
+                # Unrecognized transaction id. Transaction may have timed out and been rolled back.
+                pass
 
     def cursor(self):
         self._messages = []
@@ -128,7 +142,7 @@ class Connection(object):
         Executes a list of statements, returning an iterator of results sets. Each 
         statement should be a tuple of (statement, params).
         """
-        payload = [{'statement': s, 'parameters': p} for (s, p) in statements]
+        payload = [{'statement': s, 'parameters': p, 'resultDataContents':['rest']} for (s, p) in statements]
         http_response = self._http_req("POST", self._tx, {'statements': payload})
 
         if self._tx == TX_ENDPOINT:
